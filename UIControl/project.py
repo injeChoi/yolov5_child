@@ -179,9 +179,10 @@ class Ui_Dialog(object):
         self.file_path.setText(_translate("Dialog", FileOpen[0]))
 
     def execute_dialog(self):
+        ffPath = './ffmpegImg'
         self.reset.setEnabled(False)
-        os.system(f'mkdir video')
-        os.system(f'ffmpeg -i {self.file_path.text()} -r 1 ./video/%d.jpg')
+        os.system(f'mkdir ffmpegImg')
+        os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 {ffPath}/%d.jpg')
 
         if platform.system() == "Windows":
             pass
@@ -199,10 +200,10 @@ class Ui_Dialog(object):
         else:
             pass
             # Person Detect
-            #os.system(f'python detect.py --class 0 --save-crop --weights ./weights/yolov5x6.pt --source video --augment --project ./ --name person')
+            os.system(f'python3 detect.py --class 0 --save-crop --weights ./weights/yolov5x6.pt --source {ffPath} --project ./ --name person')
 
             # Child Detect
-            os.system(f'python3 detect_child.py --save-crop --weights child 모델경로 --img-size 320 --line-thickness 1 --conf-thres 0.1 --source ./person/crops/  --augment --project ./ --name child')
+            os.system(f'python3 detect.py --save-crop --weights 9.pt --line-thickness 1 --source ./person/person --project ./ --name detectedChild')
 
             # Fashion Detect + Color Detect (detect_fashion.py에 Color Detect 필요)
             #os.system(f'python detect_fashion.py --save-crop --weights deepfashion2 모델경로 --img-size 320 --line-thickness 1 --conf-thres 0.1 --source ./person/crops/  --augment --project ./ --name fashion')
