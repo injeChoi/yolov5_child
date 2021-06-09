@@ -217,22 +217,16 @@ class Ui_Dialog(object):
         self.file_path.setText(_translate("Dialog", FileOpen[0]))
 
     def execute_dialog(self):
-        ffPath = './ffmpegImg'
         self.reset.setEnabled(False)
-<<<<<<< HEAD
         result = {}
 
         if self.file_path.text() != "FILE_PATH":
             self.textBrowser.setText("")
             self.textBrowser.append("이미지 1초 단위 분할 시작")
             os.system(f'mkdir video')
-            os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 -threads 2 video/%d.jpg')
+            os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 video/%d.jpg')
             self.progressBar.setProperty("value", 20)
             self.textBrowser.append("이미지 1초 단위 분할 종료")
-=======
-        os.system(f'mkdir ffmpegImg')
-        os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 {ffPath}/%d.jpg')
->>>>>>> 4812d0e681b35d4dfe43864929cfacd2f055437d
 
             # Person Detect
             self.textBrowser.append("사람 탐색 시작")
@@ -241,7 +235,6 @@ class Ui_Dialog(object):
                 result[file] = 0
             self.progressBar.setProperty("value", 40)
             self.textBrowser.append("사람 탐색 종료")
-            print("사람 탐색 종료")
 
             # Child Detect
             self.textBrowser.append("아동 탐색 시작")
@@ -254,7 +247,6 @@ class Ui_Dialog(object):
                         result[key] += value
             self.progressBar.setProperty("value", 60)
             self.textBrowser.append("아동 탐색 종료")
-            print("아동 탐색 종료")
 
             # Fashion Detect + Color Detect (detect_fashion.py에 Color Detect 필요)
             self.textBrowser.append("옷 탐색 시작")
@@ -267,9 +259,7 @@ class Ui_Dialog(object):
                         result[key] += value
             self.progressBar.setProperty("value", 80)
             self.textBrowser.append("옷 탐색 종료")
-            print("옷 색깔 탐색 종료")
 
-<<<<<<< HEAD
             # Accessories(Back_Pack) Detect
             if self.radioButton.isChecked():
                 self.textBrowser.append("악세사리 탐색 시작")
@@ -281,21 +271,9 @@ class Ui_Dialog(object):
                         if key in result:
                             result[key] += value
                 self.textBrowser.append("악세사리 탐색 종료")
-            print("액세서리 탐색 종료")
 
             self.textBrowser.append("탐색 종료")
             self.progressBar.setProperty("value", 100)
-=======
-            # Accessories Detect
-            # os.system(f'python3 detect_accessory.py --save-crop --weights 악세사리 모델경로 --img-size 320 --line-thickness 1 --conf-thres 0.1 --source ./person/crops/  --augment --project ./ --name accessory')
-        else:
-            pass
-            # Person Detect
-            os.system(f'python3 detect.py --class 0 --save-crop --weights ./weights/yolov5x6.pt --source {ffPath} --project ./ --name person')
-
-            # Child Detect
-            os.system(f'python3 detect.py --save-crop --weights 9.pt --line-thickness 1 --source ./person/person --project ./ --name detectedChild')
->>>>>>> 4812d0e681b35d4dfe43864929cfacd2f055437d
 
             sorted_result = sorted(result.items(), key = lambda item: item[1], reverse=True)
             max_result = sorted_result[0][1]
