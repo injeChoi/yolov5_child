@@ -226,32 +226,32 @@ class Ui_Dialog(object):
             if os.path.exists('./video') :
                 os.rmdir('./video')
             os.system(f'mkdir video')
-            # os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 video/%d.jpg')
+            os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 video/%d.jpg')
             self.progressBar.setProperty("value", 10)
             self.textBrowser.append("이미지 1초 단위 분할 종료")
 
             # Person Detect
             self.textBrowser.append("사람 탐색 시작")
-            # os.system(f'python detect.py --class 0 --save-crop --weights ./weights/yolov5x6.pt --source video --conf-thres 0.1')
+            os.system(f'python detect.py --class 0 --save-crop --weights ./weights/yolov5x6.pt --source video --conf-thres 0.1')
             self.progressBar.setProperty("value", 30)
             self.textBrowser.append("사람 탐색 종료")
 
             # Child Detect
             self.textBrowser.append("아동 탐색 시작")
-            # os.system(f'python detect.py --weights ./weights/child.pt --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person  --save-crop')
+            os.system(f'python detect.py --weights ./weights/child.pt --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person  --save-crop')
             self.progressBar.setProperty("value", 50)
             self.textBrowser.append("아동 탐색 종료")
 
             # Fashion Detect
             self.textBrowser.append("옷 탐색 시작")\
-            # os.system(f'python detect.py --weights ./weights/fashion.pt --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person --save-crop')
+            os.system(f'python detect.py --weights ./weights/fashion.pt --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person --save-crop')
             self.progressBar.setProperty("value", 70)
             self.textBrowser.append("옷 탐색 종료")
 
             # Accessories(Back_Pack) Detect
             if self.radioButton.isChecked():
                 self.textBrowser.append("악세사리 탐색 시작")
-                # os.system(f'python detect.py --weights ./weights/yolov5x6.pt --class 24 --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person')
+                os.system(f'python detect.py --weights ./weights/yolov5x6.pt --class 24 --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person --save-crop')
                 self.textBrowser.append("악세사리 탐색 종료")
             self.progressBar.setProperty("value", 90)
 
