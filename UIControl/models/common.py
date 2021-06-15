@@ -331,7 +331,6 @@ class Detections:
             im = Image.fromarray(im.astype(np.uint8)) if isinstance(im, np.ndarray) else im  # from np
             if pprint:
                 print(str.rstrip(', '))
-                print("here")
             if show:
                 im.show(self.files[i])  # show
             if save:

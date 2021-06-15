@@ -1,9 +1,9 @@
 import os
-import time
-import sys
 import cv2
+import sys
+
 from PyQt5 import QtCore, QtGui, QtWidgets
-from ast import literal_eval
+from color import color_detect
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -218,80 +218,171 @@ class Ui_Dialog(object):
 
     def execute_dialog(self):
         self.reset.setEnabled(False)
-        result = {}
 
         if self.file_path.text() != "FILE_PATH":
+            # 영상 => 이미지
             self.textBrowser.setText("")
             self.textBrowser.append("이미지 1초 단위 분할 시작")
+            if os.path.exists('./video') :
+                os.rmdir('./video')
             os.system(f'mkdir video')
-            os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 video/%d.jpg')
-            self.progressBar.setProperty("value", 20)
+            # os.system(f'ffmpeg -i {self.file_path.text()} -ss 00:00:01 -vf "yadif=0:-1:0,fps=2" -qscale:v 2 video/%d.jpg')
+            self.progressBar.setProperty("value", 10)
             self.textBrowser.append("이미지 1초 단위 분할 종료")
 
             # Person Detect
             self.textBrowser.append("사람 탐색 시작")
-            os.system(f'python detect_person.py --class 0 --save-crop --weights ./weights/yolov5x6.pt --source video')
-            for file in os.listdir('./runs/detect/exp/crops/person'):
-                result[file] = 0
-            self.progressBar.setProperty("value", 40)
+            # os.system(f'python detect.py --class 0 --save-crop --weights ./weights/yolov5x6.pt --source video --conf-thres 0.1')
+            self.progressBar.setProperty("value", 30)
             self.textBrowser.append("사람 탐색 종료")
 
             # Child Detect
             self.textBrowser.append("아동 탐색 시작")
-            os.system(f'python detect_child.py --weights ./weights/child.pt --img-size 320 --line-thickness 1 --conf-thres 0.3 --source ./runs/detect/exp/crops/person > ./child.txt')
-            with open("child.txt") as f:
-                child_result = f.readlines()[len(os.listdir('./runs/detect/exp/crops/person'))]
-                literal_eval(child_result)
-                for key, value in eval(child_result).items():
-                    if key in result:
-                        result[key] += value
-            self.progressBar.setProperty("value", 60)
+            # os.system(f'python detect.py --weights ./weights/child.pt --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person  --save-crop')
+            self.progressBar.setProperty("value", 50)
             self.textBrowser.append("아동 탐색 종료")
 
-            # Fashion Detect + Color Detect (detect_fashion.py에 Color Detect 필요)
-            self.textBrowser.append("옷 탐색 시작")
-            os.system(f'python detect_fashion.py --weights ./weights/fashion.pt --img-size 320 --line-thickness 1 --conf-thres 0.1 --source ./runs/detect/exp/crops/person --top {self.up.currentText()} --top-color {self.up_color.currentText()} --pant {self.down.currentText()} --pant-color {self.down_color.currentText()} > ./fashion.txt')
-            with open("fashion.txt") as f:
-                fashion_result = f.readlines()[len(os.listdir('./runs/detect/exp/crops/person'))]
-                literal_eval(fashion_result)
-                for key, value in eval(fashion_result).items():
-                    if key in result:
-                        result[key] += value
-            self.progressBar.setProperty("value", 80)
+            # Fashion Detect
+            self.textBrowser.append("옷 탐색 시작")\
+            # os.system(f'python detect.py --weights ./weights/fashion.pt --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person --save-crop')
+            self.progressBar.setProperty("value", 70)
             self.textBrowser.append("옷 탐색 종료")
 
             # Accessories(Back_Pack) Detect
             if self.radioButton.isChecked():
                 self.textBrowser.append("악세사리 탐색 시작")
-                os.system(f'python detect_accessory.py --weights ./weights/yolov5x6.pt --class 24 --img-size 320 --line-thickness 1 --conf-thres 0.05 --source ./runs/detect/exp/crops/person > ./accessory.txt')
-                with open("accessory.txt") as f:
-                    accessory_result = f.readlines()[len(os.listdir('./runs/detect/exp/crops/person'))]
-                    literal_eval(accessory_result)
-                    for key, value in eval(accessory_result).items():
-                        if key in result:
-                            result[key] += value
+                # os.system(f'python detect.py --weights ./weights/yolov5x6.pt --class 24 --img-size 320 --line-thickness 1 --conf-thres 0.5 --source ./runs/detect/exp/crops/person')
                 self.textBrowser.append("악세사리 탐색 종료")
+            self.progressBar.setProperty("value", 90)
 
-            self.textBrowser.append("탐색 종료")
+            # 가중치 계산 + 결과 추력
+            self.textBrowser.append("평가 중...")
+            result = {}
+            overlap = {}
+            color_result = []
+            top = set()
+            pant = set()
+
+            for i in os.listdir("./runs/detect/exp/crops/person"):
+                result[i] = 0
+                overlap[i] = 1
+                top_color_val, pant_color_val, ratio, ratio2 = color_detect(self.up_color.currentText(), self.down_color.currentText(), self.down.currentText(),i)
+                color_result.append([i, top_color_val, pant_color_val, ratio, ratio2])
+
+            with open("txt/top_color.txt", "w") as f:
+                for i, top_color_val, pant_color_val, ratio, ratio2 in color_result:
+                    if top_color_val > 0:
+                        result[i] += 40
+                        f.write(f'{i}\n')
+
+            with open("txt/pant_color.txt", "w") as f:
+                for i, top_color_val, pant_color_val, ratio, ratio2 in color_result:
+                    if pant_color_val > 0:
+                        result[i] += 40
+                        f.write(f'{i}\n')
+
+            with open("txt/top_color&pant_color.txt", "w") as f:
+                for i, top_color_val, pant_color_val, ratio, ratio2 in color_result:
+                    if top_color_val + pant_color_val == 80:
+                        result[i] += 20
+                        f.write(f'{i}\n')
+
+            with open("txt/child.txt", "w") as f:
+                for i in os.listdir("./runs/detect/exp2/crops/child"):
+                    splice = i.split("_")
+                    name = splice[0] + "_" + splice[1] + ".jpg"
+
+                    if len(splice[-1]) != 4:
+                        overlap[name] += 1
+
+                    result[name] += 30
+                    f.write(f'{name}\n')
+
+            with open("txt/top.txt", "w") as f:
+                if os.path.exists(f'./runs/detect/exp3/crops/{self.up.currentText()}'):
+                    for i in os.listdir(f'./runs/detect/exp3/crops/{self.up.currentText()}'):
+                        splice = i.split("_")
+                        name = splice[0] + "_" + splice[1] + ".jpg"
+
+                        if len(splice[-1]) != 4:
+                            overlap[name] += 1
+
+                        result[name] += 30
+                        top.add(name)
+                        f.write(f'{name}\n')
+
+            with open("txt/pant.txt", "w") as f:
+                if os.path.exists(f'./runs/detect/exp3/crops/{self.down.currentText()}'):
+                    for i in os.listdir(f'./runs/detect/exp3/crops/{self.down.currentText()}'):
+                        splice = i.split("_")
+                        name = splice[0] + "_" + splice[1] + ".jpg"
+
+                        if len(splice[-1]) != 4:
+                            overlap[name] += 1
+
+                        result[name] += 30
+                        pant.add(name)
+                        f.write(f'{name}\n')
+
+            with open("txt/top&pant.txt", "w") as f:
+                for i in top.intersection(pant):
+                    result[i] += 20
+                    f.write(f'{i}\n')
+
+            for key, value in result.items():
+                result[key] = value // overlap[key]
+
+            if self.radioButton.isChecked():
+                with open("txt/backpack.txt", "w") as f:
+                    for i in os.listdir(f'./runs/detect/exp4/crops/backpack'):
+                        splice = i.split("_")
+                        name = splice[0] + "_" + splice[1] + ".jpg"
+
+                        if len(splice[-1]) != 4:
+                            overlap[name] += 1
+
+                        result[name] += 30
+                        f.write(f'{name}\n')
+
+            result = sorted(result.items(), key=lambda i: (i[1], i[0]), reverse=True)
+            max_val = result[0][1]
+            # print(result)
+
             self.progressBar.setProperty("value", 100)
+            self.textBrowser.append("탐색 종료.")
 
-            sorted_result = sorted(result.items(), key = lambda item: item[1], reverse=True)
-            max_result = sorted_result[0][1]
-            print(sorted_result)
-            print(max_result)
+            with open("txt/result.txt", "w") as f:
+                for key in result:
+                    f.write(f'{key[0]} : {key[1]}\n')
+                    num = key[0].split("_")
 
-            for i in sorted_result:
-                if max_result == i[1]:
-                    img0 = cv2.imread('./runs/detect/exp/' + i[0][0] + '.jpg')
-                    dst0 = cv2.resize(img0, dsize=(512, 512))
-                    img = cv2.imread('./runs/detect/exp/crops/person/' + i[0])
-                    dst = cv2.resize(img, dsize=(512, 512))
-                    cv2.imshow('result0', dst0)
-                    cv2.imshow('result', dst)
-                    cv2.waitKey()
-                    cv2.destroyAllWindows()
+                    if key[1] == max_val:
+                        img0 = cv2.imread('./runs/detect/exp/' + num[0] + '.jpg')
+                        img0 = cv2.resize(img0, dsize=(512, 512))
+                        cv2.namedWindow(f'{num}Second Image')
+                        cv2.moveWindow(f'{num}Second Image', 0, 0)
+                        cv2.imshow(f'{num}Second Image', img0)
 
+                        img1 = cv2.imread('./runs/detect/exp2/' + key[0])
+                        cv2.namedWindow(f'{num}Second Child Image')
+                        cv2.moveWindow(f'{num}Second Child Image', 600, 0)
+                        cv2.imshow(f'{num}Second Child Image', img1)
 
+                        img2 = cv2.imread('./runs/detect/exp3/' + key[0])
+                        cv2.namedWindow(f'{num}Second Fashion Image')
+                        cv2.moveWindow(f'{num}Second Fashion Image', 600, 400)
+                        cv2.imshow(f'{num}Second Fashion Image', img2)
+
+                        if self.radioButton.isChecked():
+                            img3 = cv2.imread('./runs/detect/exp4/' + key[0])
+                            cv2.namedWindow(f'{num}Second Accessory Image')
+                            cv2.moveWindow(f'{num}Second Accessory Image', 600, 800)
+                            cv2.imshow(f'{num}Second Accessory Image', img3)
+
+                        cv2.waitKey()
+                        cv2.destroyAllWindows()
+
+            self.reset.setEnabled(True)
         else:
             self.textBrowser.setText("파일을 첨부하세요")
 

@@ -1,0 +1,12 @@
+project
+1. short_sleeved_shirt / BLUE / shorts / ORANGE (9_12., 8_12, 7_12, 5_12. 4_13, 3_13, 2_15, 1_14, 18_11, 17_12, 16_13, 15_11, 14_10, 13_13, 12_11, 11_16, 10_11)
+2. vest / SPRING_GREEN / shorts / CYAN(4_10, 3_9, 2_3 ...)
+3. short_sleeved_shirt / RED / shorts / BACK (8_13, 7_13)
+
+project1
+1. long_sleeved_shirt / GRAY/ trousers / RED / BACKPACK(6_38)
+2. long_sleeved_shirt / BLACK/ trousers /  ROSE / BACKPACK(6_35)
+
+project 2
+1. short_sleeved_shirt / SPRING_GREEN / trousers / BLACK (41_41, 39_41)
+(2. short_sleeved_shirt / AZURE / trousers / AZURE (5_19))

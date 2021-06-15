@@ -1,5 +1,6 @@
 # YOLOv5 general utils
 
+import contextlib
 import glob
 import logging
 import math
@@ -7,11 +8,13 @@ import os
 import platform
 import random
 import re
-import subprocess
+import signal
 import time
+import urllib
 from itertools import repeat
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
+from subprocess import check_output
 
 import cv2
 import numpy as np
@@ -31,6 +34,26 @@ np.set_printoptions(linewidth=320, formatter={'float_kind': '{:11.5g}'.format}) 
 pd.options.display.max_columns = 10
 cv2.setNumThreads(0)  # prevent OpenCV from multithreading (incompatible with PyTorch DataLoader)
 os.environ['NUMEXPR_MAX_THREADS'] = str(min(os.cpu_count(), 8))  # NumExpr max threads
+
+
+class timeout(contextlib.ContextDecorator):
+    # Usage: @timeout(seconds) decorator or 'with timeout(seconds):' context manager
+    def __init__(self, seconds, *, timeout_msg='', suppress_timeout_errors=True):
+        self.seconds = int(seconds)
+        self.timeout_message = timeout_msg
+        self.suppress = bool(suppress_timeout_errors)
+
+    def _timeout_handler(self, signum, frame):
+        raise TimeoutError(self.timeout_message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self._timeout_handler)  # Set handler for SIGALRM
+        signal.alarm(self.seconds)  # start countdown for SIGALRM to be raised
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        signal.alarm(0)  # Cancel SIGALRM if it's scheduled
+        if self.suppress and exc_type is TimeoutError:  # Suppress TimeoutError
+            return True
 
 
 def set_logging(rank=-1, verbose=True):
@@ -53,17 +76,22 @@ def get_latest_run(search_dir='.'):
 
 
 def is_docker():
-    # Is environment a Docker container
+    # Is environment a Docker container?
     return Path('/workspace').exists()  # or Path('/.dockerenv').exists()
 
 
 def is_colab():
-    # Is environment a Google Colab instance
+    # Is environment a Google Colab instance?
     try:
         import google.colab
         return True
     except Exception as e:
         return False
+
+
+def is_pip():
+    # Is file in a pip package?
+    return 'site-packages' in Path(__file__).absolute().parts
 
 
 def emojis(str=''):
@@ -80,13 +108,13 @@ def check_online():
     # Check internet connectivity
     import socket
     try:
-        socket.create_connection(("1.1.1.1", 443), 5)  # check host accesability
+        socket.create_connection(("1.1.1.1", 443), 5)  # check host accessibility
         return True
     except OSError:
         return False
 
 
-def check_git_status():
+def check_git_status(err_msg=', for updates see https://github.com/ultralytics/yolov5'):
     # Recommend 'git pull' if code is out of date
     print(colorstr('github: '), end='')
     try:
@@ -95,9 +123,9 @@ def check_git_status():
         assert check_online(), 'skipping check (offline)'
 
         cmd = 'git fetch && git config --get remote.origin.url'
-        url = subprocess.check_output(cmd, shell=True).decode().strip().rstrip('.git')  # github repo url
-        branch = subprocess.check_output('git rev-parse --abbrev-ref HEAD', shell=True).decode().strip()  # checked out
-        n = int(subprocess.check_output(f'git rev-list {branch}..origin/master --count', shell=True))  # commits behind
+        url = check_output(cmd, shell=True, timeout=5).decode().strip().rstrip('.git')  # git fetch
+        branch = check_output('git rev-parse --abbrev-ref HEAD', shell=True).decode().strip()  # checked out
+        n = int(check_output(f'git rev-list {branch}..origin/master --count', shell=True))  # commits behind
         if n > 0:
             s = f"⚠️ WARNING: code is out of date by {n} commit{'s' * (n > 1)}. " \
                 f"Use 'git pull' to update or 'git clone {url}' to download latest."
@@ -105,10 +133,10 @@ def check_git_status():
             s = f'up to date with {url} ✅'
         print(emojis(s))  # emoji-safe
     except Exception as e:
-        print(e)
+        print(f'{e}{err_msg}')
 
 
-def check_python(minimum='3.7.0', required=True):
+def check_python(minimum='3.6.2', required=True):
     # Check current python version vs. required python version
     current = platform.python_version()
     result = pkg.parse_version(current) >= pkg.parse_version(minimum)
@@ -135,10 +163,11 @@ def check_requirements(requirements='requirements.txt', exclude=()):
         try:
             pkg.require(r)
         except Exception as e:  # DistributionNotFound or VersionConflict if requirements not met
-            n += 1
             print(f"{prefix} {r} not found and is required by YOLOv5, attempting auto-update...")
             try:
-                print(subprocess.check_output(f"pip install '{r}'", shell=True).decode())
+                assert check_online(), f"'pip install {r}' skipped (offline)"
+                print(check_output(f"pip install '{r}'", shell=True).decode())
+                n += 1
             except Exception as e:
                 print(f'{prefix} {e}')
 
@@ -173,24 +202,32 @@ def check_imshow():
 
 
 def check_file(file):
-    # Search for file if not found
-    if Path(file).is_file() or file == '':
+    # Search/download file (if necessary) and return path
+    file = str(file)  # convert to str()
+    if Path(file).is_file() or file == '':  # exists
         return file
-    else:
+    elif file.startswith(('http://', 'https://')):  # download
+        url, file = file, Path(urllib.parse.unquote(str(file))).name  # url, file (decode '%2F' to '/' etc.)
+        file = file.split('?')[0]  # parse authentication https://url.com/file.txt?auth...
+        print(f'Downloading {url} to {file}...')
+        torch.hub.download_url_to_file(url, file)
+        assert Path(file).exists() and Path(file).stat().st_size > 0, f'File download failed: {url}'  # check
+        return file
+    else:  # search
         files = glob.glob('./**/' + file, recursive=True)  # find file
-        assert len(files), f'File Not Found: {file}'  # assert file was found
+        assert len(files), f'File not found: {file}'  # assert file was found
         assert len(files) == 1, f"Multiple files match '{file}', specify exact path: {files}"  # assert unique
         return files[0]  # return file
 
 
-def check_dataset(dict):
+def check_dataset(data, autodownload=True):
     # Download dataset if not found locally
-    val, s = dict.get('val'), dict.get('download')
+    val, s = data.get('val'), data.get('download')
     if val and len(val):
         val = [Path(x).resolve() for x in (val if isinstance(val, list) else [val])]  # val path
         if not all(x.exists() for x in val):
             print('\nWARNING: Dataset not found, nonexistent paths: %s' % [str(x) for x in val if not x.exists()])
-            if s and len(s):  # download script
+            if s and len(s) and autodownload:  # download script
                 if s.startswith('http') and s.endswith('.zip'):  # URL
                     f = Path(s).name  # filename
                     print(f'Downloading {s} ...')
@@ -674,65 +711,6 @@ def save_one_box(xyxy, im, file='image.jpg', gain=1.02, pad=10, square=False, BG
         cv2.imwrite(str(increment_path(file, mkdir=True).with_suffix('.jpg')), crop)
     return crop
 
-# def color_detect(fashion_color, img):
-#     basic_color = {"RED": 0, "ORANGE": 15, "YELLOW": 30, "CHARTREUSE_GREEN": 45,
-#                    "GREEN": 60, "SPRING_GREEN": 75, "CYAN": 90, "AZURE": 105,
-#                    "BLUE": 120, "VIOLET": 135, "MAGENTA": 150, "ROSE": 165,
-#                    "BLACK": 256, "WHITE": 50, "GRAY": 16}
-#
-#     # HSV 형태로 변환
-#     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV) # cvtColor 함수를 이용하여 hsv 색공간으로 변환
-#
-#     # 추출 색깔 초기화
-#     color = basic_color[fashion_color]
-#
-#     # BLACK
-#     if color == 256:
-#         lower = (0, 0, 0)
-#         upper = (179, 128, 50)
-#
-#         img_mask = cv2.inRange(img_hsv, lower, upper)
-#         ratio = np.count_nonzero(img_mask == 255) / np.size(img_mask)
-#     # WHITE
-#     elif color == 50:
-#         lower = (0, 0, 200)
-#         upper = (179, 25, 255)
-#
-#         img_mask = cv2.inRange(img_hsv, lower, upper)
-#         ratio = np.count_nonzero(img_mask == 255) / np.size(img_mask)
-#     # GRAY
-#     elif color == 16:
-#         lower = (15, 40, 40)
-#         upper = (120, 100, 100)
-#
-#         img_mask = cv2.inRange(img_hsv, lower, upper)
-#         ratio = np.count_nonzero(img_mask == 255) / np.size(img_mask)
-#     # RED
-#     elif color == 0:
-#         lower = (color, 30, 30)
-#         upper = (color + 15, 255, 255)
-#
-#         img_mask = cv2.inRange(img_hsv, lower, upper)
-#         img_mask_2 = cv2.inRange(img_hsv, (165, 30, 30), (179, 255, 255))
-#         ratio = np.count_nonzero(img_mask == 255) / np.size(img_mask) + np.count_nonzero(img_mask_2 == 255) / np.size(img_mask_2)
-#     # ROSE
-#     elif color + 15 == 180:
-#         lower = (color - 15, 30, 30)
-#         upper = (color + 14, 255, 255)
-#
-#         img_mask = cv2.inRange(img_hsv, lower, upper)
-#         ratio = np.count_nonzero(img_mask == 255) / np.size(img_mask)
-#     # ETC
-#     else:
-#         lower = (color - 15, 30, 30)
-#         upper = (color + 15, 255, 255)
-#         img_mask = cv2.inRange(img_hsv, lower, upper) # 범위내의 픽셀들은 흰색, 나머지 검은색
-#         ratio = np.count_nonzero(img_mask==255) / np.size(img_mask)
-#
-#     if ratio >= 0.3:
-#         return 0.3
-#     else:
-#         return 0
 
 def increment_path(path, exist_ok=False, sep='', mkdir=False):
     # Increment file or directory path, i.e. runs/exp --> runs/exp{sep}2, runs/exp{sep}3, ... etc.
