@@ -1,9 +1,9 @@
 # 딥러닝 기반 실종 아동 수색 모델
-<br><br><br>
+<br>
 
 ## <div align="center">👋 Introduction</div>
 
- - CCTV 영상과 실종 아동의 메타데이터를 기반으로 CCTV 영상 내에서 실종 아동을 빠르게 수색하는 프로그램 입니다.
+ - `CCTV 영상`과 `실종 아동의 메타데이터`를 기반으로 CCTV 영상 내에서 실종 아동을 빠르게 수색하는 프로그램 입니다.
 <br><br><br>
 
 ## <div align="center">🌏 Environments</div>
