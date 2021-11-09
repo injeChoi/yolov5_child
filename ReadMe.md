@@ -1,4 +1,5 @@
 # 딥러닝 기반 실종 아동 수색 모델
+<br><br><br>
 
 ## <div align="center">👋 Introduction</div>
 
@@ -45,7 +46,9 @@
 ## <div align="center">👀 Etc</div>
 <div align="center">
 
-📼 [데모영상](https://youtu.be/lyCvz1hBtUg)
+📽 [프로젝트 설명](https://youtu.be/lyCvz1hBtUg)
+
+📼 [시연 영상](https://drive.google.com/file/d/1kaQvJvtI1dzllM3CQciUnKe8WSyRLS_U/view?usp=sharing)
 
 📝 [논문](https://drive.google.com/file/d/1hgqwRPbIaFdmXxWSA_Aref4xf8iebheS/view?usp=sharing)
 </div>
